@@ -1,1 +1,10 @@
-# Matriz de requisitos`n`n| Requisito | Implementação | Evidência |`n|---|---|---|`n| Atualização mensal | ingest/update + manifesto | testes e log |`n| Rastreabilidade | SHA-256, bruto, versão, ZIP | manifesto.json |`n| Dossiê | service.build_dossier + app | teste de exportação |`n| Regras transparentes | rules.py | test_rules.py |
+# Matriz de requisitos
+
+| Requisito | Implementação | Teste | Demonstração |
+|---|---|---|---|
+| Atualização mensal | `ingest`/`update` + manifesto | pipeline | última tentativa e versão |
+| Rastreabilidade | SHA-256, bruto, versão, ZIP | exportação | abrir `manifesto.json` |
+| Dossiê | `service.build_dossier` + `app.py` | pipeline | conjunto → evidências |
+| Regras transparentes | `rules.py` | limites e divergência | parâmetros no Dossiê |
+| Confiança | sete componentes ordinais | regras | checklist visível |
+| Fonte indisponível | `last_attempt.json` | estado vazio | versão válida preservada |
