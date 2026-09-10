@@ -4,6 +4,7 @@ from datetime import date
 
 RULES_VERSION = '1.0.0'
 PARAMETERS = {'minimum_records': 10, 'minimum_valid_dates_pct': 95.0, 'minimum_durations': 10, 'moderate_pct': 10.0, 'relevant_pct': 25.0, 'consistent_months': 6}
+EPSILON = 1e-9
 
 def previous_period(period):
     year, month = map(int, period.split('-'))
@@ -43,14 +44,15 @@ def evaluate(current, previous, history, *, revised=False, integrity=True, schem
         label, rule = 'sem comparação','S03_NO_COMPARISON'; reasons.append('Não há base percentual comparável no mês civil anterior.')
     else:
         values=[v['percent'] for v in changes.values()]
-        ups=[(k,v) for k,v in changes.items() if v['percent'] >= PARAMETERS['moderate_pct']]
-        downs=[(k,v) for k,v in changes.items() if v['percent'] <= -PARAMETERS['moderate_pct']]
-        if any(v['percent'] >= PARAMETERS['relevant_pct'] for v in changes.values()): label,rule='aumento relevante','S04_RELEVANT_INCREASE'
+        ups=[(k,v) for k,v in changes.items() if v['percent'] >= PARAMETERS['moderate_pct']-EPSILON]
+        downs=[(k,v) for k,v in changes.items() if v['percent'] <= -PARAMETERS['moderate_pct']+EPSILON]
+        if any(v['percent'] >= PARAMETERS['relevant_pct']-EPSILON for v in changes.values()): label,rule='aumento relevante','S04_RELEVANT_INCREASE'
         elif ups: label,rule='deterioração moderada','S05_MODERATE_DETERIORATION'
         elif downs: label,rule='melhora','S06_IMPROVEMENT'
         else: label,rule='estabilidade','S07_STABILITY'
         reasons.append('Critérios operacionais versionados; não representam causalidade nem padrão regulatório.')
-    divergent=bool(changes) and any(v.get('percent',0)>=10 for v in changes.values()) and any(v.get('percent',0)<=-10 for v in changes.values())
+    percents=[v.get('percent') for v in changes.values() if v.get('percent') is not None]
+    divergent=bool(percents) and any(v>=10-EPSILON for v in percents) and any(v<=-10+EPSILON for v in percents)
     consecutive=0
     for m in sorted(history, key=lambda x:x['period'], reverse=True):
         if usable(m) and (not consecutive or m['period']==previous_period(last)):
