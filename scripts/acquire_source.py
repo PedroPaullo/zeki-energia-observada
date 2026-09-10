@@ -27,12 +27,18 @@ try:
                 if len(block)!=end-start+1: raise RuntimeError(f'Faixa incompleta {start}-{end}: {len(block)} bytes')
                 dest.write(block)
     size=target.stat().st_size
-    if size!=total or target.read_bytes()[:4]!=b'PAR1' or target.open('rb').read() is None:
+    with target.open('rb') as stream:
+        starts_parquet = stream.read(4) == b'PAR1'
+    if size != total or not starts_parquet:
         raise RuntimeError('Arquivo não passou nas verificações físicas Parquet.')
     with target.open('rb') as stream:
         stream.seek(-4,2)
         if stream.read()!=b'PAR1': raise RuntimeError('Footer Parquet ausente; download incompleto.')
-    metadata.update(sha256=hashlib.sha256(target.read_bytes()).hexdigest(), size_bytes=size, expected_size_bytes=total, status='acquired')
+    digest = hashlib.sha256()
+    with target.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    metadata.update(sha256=digest.hexdigest(), size_bytes=size, expected_size_bytes=total, status='acquired')
     print(json.dumps(metadata, ensure_ascii=False))
 except Exception as exc:
     metadata.update(status='failed', error=str(exc))
