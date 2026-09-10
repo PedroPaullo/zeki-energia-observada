@@ -15,7 +15,7 @@ def test_pipeline_and_export(tmp_path):
  assert active['profile']['accepted_rows']==20
  d=build_dossier('12345678000199','C1','2026-02',data_dir=tmp_path/'data')
  assert d['assessment']['situation']['label']=='aumento relevante'
- bundle=export_dossier(d,output_dir=tmp_path/'exports')
+ bundle=export_dossier(d,data_dir=tmp_path/'data',output_dir=tmp_path/'exports')
  assert bundle.exists()
  with zipfile.ZipFile(bundle) as archive:
   assert set(archive.namelist()) == {'dossie.md','registros.csv','manifesto.json'}
