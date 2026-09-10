@@ -25,6 +25,11 @@ def _change(current, previous, key):
     return {'current': a, 'previous': b, 'absolute': a-b, 'percent': None if b == 0 else 100*(a/b-1), 'eligible': b != 0}
 
 def evaluate(current, previous, history, *, revised=False, integrity=True, schema=True):
+    if current and '_eo_period' in current:
+        current = {**current, 'period': current['_eo_period']}
+    if previous and '_eo_period' in previous:
+        previous = {**previous, 'period': previous['_eo_period']}
+    history = [{**m, 'period': m.get('period', m.get('_eo_period'))} for m in history]
     components = [
       {'name':'Comparação mensal','value':'competência anterior presente' if previous else 'competência anterior ausente','status':'ok' if previous else 'warning'},
       {'name':'Histórico','value':f'{len(history)} competências fornecidas','status':'ok' if len(history)>=6 else 'warning'},
