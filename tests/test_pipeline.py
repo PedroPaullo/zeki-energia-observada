@@ -3,7 +3,7 @@ import zipfile
 from pathlib import Path
 import pytest
 from energia_observada.pipeline import ingest, transform, QualityError
-from energia_observada.service import build_dossier, export_dossier
+from energia_observada.service import build_dossier, export_dossier, choices
 
 HEAD='NumCNPJDistribuidora;NomAgente;CodMunicipioIBGE;CodInterrupcao;CodConjUnidadeConsumidora;DscConjuntoUnidadeConsumidora;AnoCompetencia;MesCompetencia;DatInicioInterrupcao;DatFimInterrupcao;QtdConsumidoresAfetados\n'
 def test_pipeline_and_export(tmp_path):
@@ -14,6 +14,7 @@ def test_pipeline_and_export(tmp_path):
  meta=ingest(2026,file=source,mode='sample',data_dir=tmp_path/'data')
  active=transform(tmp_path/'data')
  assert active['profile']['accepted_rows']==20
+ assert choices(tmp_path/'data')['distributors']==[{'cnpj':'12345678000199','display_name':'Teste'}]
  d=build_dossier('12345678000199','C1','2026-02',data_dir=tmp_path/'data')
  assert d['assessment']['situation']['label']=='aumento relevante'
  bundle=export_dossier(d,data_dir=tmp_path/'data',output_dir=tmp_path/'exports')

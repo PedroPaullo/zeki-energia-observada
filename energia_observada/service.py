@@ -15,7 +15,7 @@ def choices(data_dir=None):
     a=_active(data_dir)
     with _con(a,data_dir) as c:
       rel='read_parquet('+literal((root_dir(data_dir)/a['model_path']).as_posix())+')'
-      return {'mode':a['mode'],'periods':[x['p'] for x in rows(c,f'SELECT DISTINCT _eo_period p FROM {rel} WHERE _eo_key_valid ORDER BY 1')], 'distributors':rows(c,f'SELECT DISTINCT _eo_cnpj cnpj, NomAgente name FROM {rel} WHERE _eo_key_valid ORDER BY 2'), 'conjuntos':rows(c,f'SELECT DISTINCT _eo_cnpj cnpj,_eo_conjunto conjunto,DscConjuntoUnidadeConsumidora name FROM {rel} WHERE _eo_key_valid ORDER BY 3'), 'municipalities':[x['municipio'] for x in rows(c,f'SELECT DISTINCT _eo_municipio municipio FROM {rel} WHERE _eo_municipio IS NOT NULL ORDER BY 1')]}
+      return {'mode':a['mode'],'periods':[x['p'] for x in rows(c,f'SELECT DISTINCT _eo_period AS p FROM {rel} WHERE _eo_key_valid ORDER BY 1')], 'distributors':rows(c,f'SELECT DISTINCT _eo_cnpj AS cnpj, NomAgente AS display_name FROM {rel} WHERE _eo_key_valid ORDER BY 2'), 'conjuntos':rows(c,f'SELECT DISTINCT _eo_cnpj AS cnpj, _eo_conjunto AS conjunto, DscConjuntoUnidadeConsumidora AS display_name FROM {rel} WHERE _eo_key_valid ORDER BY 3'), 'municipalities':[x['municipio'] for x in rows(c,f'SELECT DISTINCT _eo_municipio AS municipio FROM {rel} WHERE _eo_municipio IS NOT NULL ORDER BY 1')]}
 def _monthly(c,a,data_dir,cnpj,conjunto,period):
  rel='read_parquet('+literal((root_dir(data_dir)/a['monthly_path']).as_posix())+')'
  r=rows(c,f"SELECT * FROM {rel} WHERE _eo_cnpj=? AND _eo_conjunto=? AND _eo_period=?",[cnpj,conjunto,period]); return r[0] if r else None

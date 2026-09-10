@@ -14,8 +14,8 @@ try:
         st.stop()
     if active['mode']=='sample': st.warning('MODO AMOSTRA: comparações nacionais estão desabilitadas.')
     st.caption(f"Versão {active['version']} · aquisição {active.get('acquired_at','não informado')} · SHA-256 {active['sha256'][:16]}…")
-    c=service.choices(); byname={f"{x['name']} ({x['cnpj']})":x for x in c['distributors']}; dn=st.sidebar.selectbox('Distribuidora',list(byname)); d=byname[dn]
-    groups=[x for x in c['conjuntos'] if x['cnpj']==d['cnpj']]; gm={f"{x['name']} ({x['conjunto']})":x for x in groups}; gn=st.sidebar.selectbox('Conjunto elétrico',list(gm)); g=gm[gn]; period=st.sidebar.selectbox('Competência',c['periods'],index=len(c['periods'])-1)
+    c=service.choices(); byname={f"{x['display_name']} ({x['cnpj']})":x for x in c['distributors']}; dn=st.sidebar.selectbox('Distribuidora',list(byname)); d=byname[dn]
+    groups=[x for x in c['conjuntos'] if x['cnpj']==d['cnpj']]; gm={f"{x['display_name']} ({x['conjunto']})":x for x in groups}; gn=st.sidebar.selectbox('Conjunto elétrico',list(gm)); g=gm[gn]; period=st.sidebar.selectbox('Competência',c['periods'],index=len(c['periods'])-1)
     dossier=service.build_dossier(d['cnpj'],g['conjunto'],period)
     st.subheader('Dossiê de Investigação')
     st.info(' · '.join(x['text'] for x in dossier['assessment']['narrative']))
