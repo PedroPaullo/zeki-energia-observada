@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import urllib.request
+import time
 
 URL = 'https://dadosabertos.aneel.gov.br/dataset/ccb25653-f07b-4f28-84c2-62a89d1f5a56/resource/cf722d0b-aa04-4681-bcd9-8a737e857182/download/interrupcoes-energia-eletrica-2026.parquet'
 out = Path('acquired')
@@ -20,12 +21,25 @@ try:
     with target.open('wb') as dest:
         for start in range(0,total,16*1024*1024):
             end=min(total-1,start+16*1024*1024-1)
-            request=urllib.request.Request(URL, headers={**headers,'Range':f'bytes={start}-{end}'})
-            with urllib.request.urlopen(request,timeout=180) as response:
-                if response.status != 206: raise RuntimeError(f'Servidor ignorou Range em {start}: HTTP {response.status}')
-                block=response.read()
-                if len(block)!=end-start+1: raise RuntimeError(f'Faixa incompleta {start}-{end}: {len(block)} bytes')
-                dest.write(block)
+            expected=end-start+1
+            chunk=out/f'range-{start:012d}.part'
+            for attempt in range(1,4):
+                chunk.unlink(missing_ok=True)
+                try:
+                    request=urllib.request.Request(URL, headers={**headers,'Range':f'bytes={start}-{end}'})
+                    with urllib.request.urlopen(request,timeout=180) as response, chunk.open('wb') as piece:
+                        if response.status != 206: raise RuntimeError(f'Servidor ignorou Range em {start}: HTTP {response.status}')
+                        while data := response.read(1024*1024): piece.write(data)
+                    if chunk.stat().st_size != expected: raise RuntimeError(f'Faixa incompleta {start}-{end}: {chunk.stat().st_size} bytes')
+                    with chunk.open('rb') as piece: dest.write(piece.read())
+                    chunk.unlink()
+                    print(f'faixa concluída {end+1}/{total}', flush=True)
+                    break
+                except Exception:
+                    chunk.unlink(missing_ok=True)
+                    if attempt == 3: raise
+                    print(f'retentando faixa {start}-{end}: tentativa {attempt+1}/3', flush=True)
+                    time.sleep(attempt * 2)
     size=target.stat().st_size
     with target.open('rb') as stream:
         starts_parquet = stream.read(4) == b'PAR1'
