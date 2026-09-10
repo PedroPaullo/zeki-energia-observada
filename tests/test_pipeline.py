@@ -1,7 +1,8 @@
 import json
 import zipfile
 from pathlib import Path
-from energia_observada.pipeline import ingest, transform
+import pytest
+from energia_observada.pipeline import ingest, transform, QualityError
 from energia_observada.service import build_dossier, export_dossier
 
 HEAD='NumCNPJDistribuidora;NomAgente;CodMunicipioIBGE;CodInterrupcao;CodConjUnidadeConsumidora;DscConjuntoUnidadeConsumidora;AnoCompetencia;MesCompetencia;DatInicioInterrupcao;DatFimInterrupcao;QtdConsumidoresAfetados\n'
@@ -18,4 +19,13 @@ def test_pipeline_and_export(tmp_path):
  bundle=export_dossier(d,data_dir=tmp_path/'data',output_dir=tmp_path/'exports')
  assert bundle.exists()
  with zipfile.ZipFile(bundle) as archive:
-  assert set(archive.namelist()) == {'dossie.md','registros.csv','manifesto.json'}
+ assert set(archive.namelist()) == {'dossie.md','registros.csv','manifesto.json'}
+
+def test_idempotent_ingest_keeps_active_snapshot(tmp_path):
+ source=tmp_path/'source.csv'; source.write_text(HEAD+'12345678000199;Teste;1234567;A;C1;Teste;2026;01;01/01/2026 00:00:00;01/01/2026 02:00:00;1\n'*10,encoding='utf-8')
+ first=ingest(2026,file=source,data_dir=tmp_path/'data'); transform(tmp_path/'data')
+ assert ingest(2026,file=source,data_dir=tmp_path/'data')['version']==first['version']
+
+def test_schema_change_is_rejected_and_not_published(tmp_path):
+ source=tmp_path/'invalid.csv'; source.write_text('coluna;errada\n1;2\n',encoding='utf-8')
+ with pytest.raises(Exception): ingest(2026,file=source,data_dir=tmp_path/'data')
