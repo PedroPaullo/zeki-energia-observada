@@ -5,11 +5,22 @@ import json
 from pathlib import Path
 import urllib.request
 import time
+import os
 
-URL = 'https://dadosabertos.aneel.gov.br/dataset/ccb25653-f07b-4f28-84c2-62a89d1f5a56/resource/cf722d0b-aa04-4681-bcd9-8a737e857182/download/interrupcoes-energia-eletrica-2026.parquet'
+YEAR = int(os.getenv('ENERGIA_YEAR', '2026'))
+catalog_url = 'https://dadosabertos.aneel.gov.br/api/3/action/package_show?id=interrupcoes-de-energia-eletrica-nas-redes-de-distribuicao'
+with urllib.request.urlopen(catalog_url, timeout=60) as response:
+    catalog = json.load(response)
+resources = [r for r in catalog['result']['resources'] if str(YEAR) in r.get('name', '') and r.get('format', '').upper() == 'PARQUET']
+if len(resources) != 1:
+    raise RuntimeError(f'Esperado um recurso anual Parquet para {YEAR}; encontrados {len(resources)}')
+resource = resources[0]
+URL = resource['url']
+if not URL.startswith('https://dadosabertos.aneel.gov.br/'):
+    raise RuntimeError('Recurso fora do domínio oficial')
 out = Path('acquired')
 out.mkdir(exist_ok=True)
-metadata = {'source_url': URL, 'resource_id': 'cf722d0b-aa04-4681-bcd9-8a737e857182', 'acquired_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'year': 2026, 'acquisition_environment': 'GitHub Actions'}
+metadata = {'source_url': URL, 'resource_id': resource['id'], 'catalog_resource': resource, 'acquired_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'year': YEAR, 'acquisition_environment': 'GitHub Actions'}
 try:
     headers={'User-Agent': 'EnergiaObservada/1.0 (public data research)', 'Accept-Encoding':'identity'}
     req = urllib.request.Request(URL, headers={**headers, 'Range':'bytes=0-0'})
@@ -17,7 +28,7 @@ try:
         content_range=response.headers.get('Content-Range','')
         total=int(content_range.rsplit('/',1)[-1]) if '/' in content_range else int(response.headers['Content-Length'])
         metadata['http_headers'] = {k: response.headers.get(k) for k in ['Content-Length', 'Last-Modified', 'ETag', 'Content-Range']}
-    target=out/'official2026.parquet'
+    target=out/f'official{YEAR}.parquet'
     with target.open('wb') as dest:
         for start in range(0,total,16*1024*1024):
             end=min(total-1,start+16*1024*1024-1)
@@ -29,6 +40,10 @@ try:
                     request=urllib.request.Request(URL, headers={**headers,'Range':f'bytes={start}-{end}'})
                     with urllib.request.urlopen(request,timeout=180) as response, chunk.open('wb') as piece:
                         if response.status != 206: raise RuntimeError(f'Servidor ignorou Range em {start}: HTTP {response.status}')
+                        if response.headers.get('Content-Range') != f'bytes {start}-{end}/{total}':
+                            raise RuntimeError('Content-Range recebido não corresponde à faixa solicitada')
+                        if metadata['http_headers'].get('ETag') and response.headers.get('ETag') != metadata['http_headers']['ETag']:
+                            raise RuntimeError('ETag mudou durante o download; aquisição inconsistente')
                         while data := response.read(1024*1024): piece.write(data)
                     if chunk.stat().st_size != expected: raise RuntimeError(f'Faixa incompleta {start}-{end}: {chunk.stat().st_size} bytes')
                     with chunk.open('rb') as piece: dest.write(piece.read())
