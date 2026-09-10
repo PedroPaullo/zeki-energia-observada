@@ -37,5 +37,12 @@ def export_dossier(dossier,data_dir=None,output_dir='exports'):
  manifest={'exported_at':utc_now(),'dossier':dossier}
  md='# Dossiê de Investigação\n\n'+'\n'.join(f"- {x['text']}" for x in dossier['assessment']['narrative'])+'\n\n## Limitações\n'+'\n'.join('- '+x for x in dossier['limitations'])
  with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED) as z:
-  z.writestr('dossie.md',md); z.writestr('manifesto.json',json.dumps(manifest,ensure_ascii=False,indent=2,default=str)); buf=io.StringIO(); data=dossier['records_preview']; w=csv.DictWriter(buf,fieldnames=list(data[0]) if data else ['no_records']); w.writeheader(); w.writerows(data); z.writestr('registros.csv',buf.getvalue())
+  z.writestr('dossie.md',md); z.writestr('manifesto.json',json.dumps(manifest,ensure_ascii=False,indent=2,default=str))
+  active=dossier['source']; selection=dossier['selection']; model=root_dir(data_dir)/active['model_path']
+  with _con(active,data_dir) as con, z.open('registros.csv','w') as binary:
+   cursor=con.execute('SELECT * EXCLUDE (_eo_hash,_eo_key_valid,_eo_duplicate) FROM read_parquet(?) WHERE _eo_cnpj=? AND _eo_conjunto=? AND _eo_period=? AND NOT _eo_duplicate',[str(model),selection['cnpj'],selection['conjunto'],selection['period']])
+   names=[item[0] for item in cursor.description]
+   text=io.TextIOWrapper(binary,encoding='utf-8',newline=''); writer=csv.writer(text); writer.writerow(names)
+   while batch:=cursor.fetchmany(1000): writer.writerows(batch)
+   text.flush()
  return path

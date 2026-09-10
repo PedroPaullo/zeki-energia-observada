@@ -185,13 +185,14 @@ def transform(data_dir=None):
                 raise QualityError('Reconciliação de linhas falhou.')
             if profile['accepted_rows'] == 0:
                 raise QualityError('Nenhum registro com identidade e competência válidas.')
-            if profile['rejected_key_rows']:
-                raise QualityError(f"{profile['rejected_key_rows']} registros sem identidade/competência válida; publicação bloqueada para não ocultar cobertura.")
+            # Invalid identities are retained as an auditable rejection layer. They do
+            # not silently enter metrics, and their count remains in the manifest.
             profile['periods'] = [r[0] for r in con.execute('SELECT DISTINCT _eo_period FROM records WHERE _eo_key_valid ORDER BY 1').fetchall()]
             profile['distributors'] = con.execute('SELECT count(DISTINCT _eo_cnpj) FROM records WHERE _eo_key_valid').fetchone()[0]
             profile['groups'] = con.execute('SELECT count(*) FROM (SELECT DISTINCT _eo_cnpj,_eo_conjunto FROM records WHERE _eo_key_valid)').fetchone()[0]
             profile['interruption_code_multiplicity'] = con.execute('''SELECT count(*) FROM (SELECT _eo_cnpj,CodInterrupcao,count(*) n FROM records WHERE _eo_key_valid AND NOT _eo_duplicate GROUP BY 1,2 HAVING count(*)>1)''').fetchone()[0]
             con.execute('COPY records TO ' + literal((destination / 'records.parquet').as_posix()) + " (FORMAT PARQUET, COMPRESSION ZSTD)")
+            con.execute("COPY (SELECT * FROM records WHERE NOT _eo_key_valid OR _eo_duplicate) TO " + literal((destination / 'rejected.parquet').as_posix()) + ' (FORMAT PARQUET)')
             con.execute('COPY (' + monthly_sql() + ') TO ' + literal((destination / 'monthly.parquet').as_posix()) + ' (FORMAT PARQUET)')
         active = read_json(root / 'active.json')
         meta.update(profile=profile, model_path=str((destination / 'records.parquet').relative_to(root)),

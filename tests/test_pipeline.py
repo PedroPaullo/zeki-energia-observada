@@ -1,4 +1,5 @@
 import json
+import zipfile
 from pathlib import Path
 from energia_observada.pipeline import ingest, transform
 from energia_observada.service import build_dossier, export_dossier
@@ -16,3 +17,5 @@ def test_pipeline_and_export(tmp_path):
  assert d['assessment']['situation']['label']=='aumento relevante'
  bundle=export_dossier(d,output_dir=tmp_path/'exports')
  assert bundle.exists()
+ with zipfile.ZipFile(bundle) as archive:
+  assert set(archive.namelist()) == {'dossie.md','registros.csv','manifesto.json'}
