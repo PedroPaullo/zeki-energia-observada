@@ -195,7 +195,7 @@ def transform(data_dir=None):
             con.execute("COPY (SELECT * FROM records WHERE NOT _eo_key_valid OR _eo_duplicate) TO " + literal((destination / 'rejected.parquet').as_posix()) + ' (FORMAT PARQUET)')
             con.execute('COPY (' + monthly_sql() + ') TO ' + literal((destination / 'monthly.parquet').as_posix()) + ' (FORMAT PARQUET)')
         active = read_json(root / 'active.json')
-        meta.update(profile=profile, model_path=str((destination / 'records.parquet').relative_to(root)),
+        meta.update(status='published', profile=profile, model_path=str((destination / 'records.parquet').relative_to(root)),
                     monthly_path=str((destination / 'monthly.parquet').relative_to(root)),
                     model_sha256=sha256(destination / 'records.parquet'), transformed_at=utc_now(),
                     previous_version=active['version'] if active and active['version'] != meta['version'] else None)

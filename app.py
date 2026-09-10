@@ -29,10 +29,13 @@ try:
         st.plotly_chart(px.line(dossier['history'],x='_eo_period',y='affected',markers=True,title='Série histórica de afetações reportadas'),use_container_width=True)
     st.subheader('Registros-fonte')
     st.dataframe(dossier['records_preview'],use_container_width=True)
-    st.caption('Prévia limitada a 100 registros; a exportação preserva o conjunto de evidências disponível.')
-    output=service.export_dossier(dossier)
-    if output.stat().st_size<=20*1024*1024: st.download_button('Baixar pacote de evidências',output.read_bytes(),file_name=output.name,mime='application/zip')
-    else: st.info(f'Pacote maior que 20 MiB disponível em: {output.resolve()}')
+    st.caption(f"Prévia limitada a 100 registros das competências {', '.join(dossier['evidence_periods'])}; a exportação preserva todos os registros aceitos dos dois meses.")
+    if st.button('Gerar pacote de evidências'):
+        st.session_state['evidence_package']=str(service.export_dossier(dossier))
+    if package:=st.session_state.get('evidence_package'):
+        output=__import__('pathlib').Path(package)
+        if output.stat().st_size<=20*1024*1024: st.download_button('Baixar pacote de evidências',output.read_bytes(),file_name=output.name,mime='application/zip')
+        else: st.info(f'Pacote maior que 20 MiB disponível em: {output.resolve()}')
     with st.expander('Fórmulas e limites'): st.json({'formulas':dossier['formulas'],'limitations':dossier['limitations'],'regras':dossier['assessment']['parameters']})
 except Exception as exc:
     st.error(f'Não foi possível montar o dossiê: {type(exc).__name__}: {exc}')
