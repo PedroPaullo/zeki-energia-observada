@@ -19,7 +19,7 @@ def test_pipeline_and_export(tmp_path):
  bundle=export_dossier(d,data_dir=tmp_path/'data',output_dir=tmp_path/'exports')
  assert bundle.exists()
  with zipfile.ZipFile(bundle) as archive:
- assert set(archive.namelist()) == {'dossie.md','registros.csv','manifesto.json'}
+  assert set(archive.namelist()) == {'dossie.md','registros.csv','manifesto.json'}
 
 def test_idempotent_ingest_keeps_active_snapshot(tmp_path):
  source=tmp_path/'source.csv'; source.write_text(HEAD+'12345678000199;Teste;1234567;A;C1;Teste;2026;01;01/01/2026 00:00:00;01/01/2026 02:00:00;1\n'*10,encoding='utf-8')
