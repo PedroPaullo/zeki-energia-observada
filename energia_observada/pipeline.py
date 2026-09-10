@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import zipfile
+import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 import requests
@@ -40,6 +41,17 @@ def _input_relation(path):
     return f"read_csv({literal(path.as_posix())}, delim=';', header=true, all_varchar=true, nullstr='', strict_mode=true)"
 
 def _validate_schema(path):
+    if path.suffix.lower() == '.parquet':
+        if path.stat().st_size < 12:
+            raise QualityError('Parquet truncado: menos de 12 bytes.')
+        with path.open('rb') as stream:
+            header = stream.read(4)
+            stream.seek(-8, 2)
+            footer = stream.read(8)
+        if header != b'PAR1' or footer[4:] != b'PAR1':
+            raise QualityError('Parquet inválido: assinatura inicial ou footer PAR1 ausente.')
+        if int.from_bytes(footer[:4], 'little') > path.stat().st_size - 12:
+            raise QualityError('Parquet truncado: comprimento do footer excede o arquivo.')
     with connect() as con:
         description = rows(con, 'DESCRIBE SELECT * FROM ' + _input_relation(path))
         columns = [d['column_name'] for d in description]
@@ -61,6 +73,8 @@ def ingest(year=2026, *, file=None, metadata=None, mode='national', data_dir=Non
     staging = root / 'staging'
     staging.mkdir(exist_ok=True)
     try:
+        if mode not in ('national', 'sample'):
+            raise QualityError('Modo deve ser national ou sample.')
         meta = dict(metadata or {})
         if file is None:
             meta.update(discover(year))
@@ -84,6 +98,10 @@ def ingest(year=2026, *, file=None, metadata=None, mode='national', data_dir=Non
             meta.setdefault('acquired_at', utc_now())
             meta.setdefault('source_url', 'local://explicit-import')
         checksum = sha256(path)
+        if meta.get('sample_sha256') and meta['sample_sha256'] != checksum:
+            raise QualityError('SHA-256 da amostra difere do manifesto.')
+        if meta.get('size_bytes') and meta['size_bytes'] != path.stat().st_size:
+            raise QualityError('Tamanho do arquivo difere do manifesto de aquisição.')
         if meta.get('sha256') and meta['sha256'] != checksum:
             raise QualityError('SHA-256 do arquivo difere do manifesto de aquisição.')
         raw_dir = root / 'raw' / checksum
@@ -105,11 +123,14 @@ def ingest(year=2026, *, file=None, metadata=None, mode='national', data_dir=Non
         profile = _validate_schema(parse_path)
         meta.update(sha256=checksum, size_bytes=path.stat().st_size, year=year, mode=mode,
                     raw_path=str(raw_path.relative_to(root)), parse_path=str(parse_path.relative_to(root)),
-                    parse_sha256=sha256(parse_path), version=checksum[:16] + '-t1', transform_version=TRANSFORM_VERSION,
+                    parse_sha256=sha256(parse_path), version=checksum[:16] + '-t1-' + mode, transform_version=TRANSFORM_VERSION,
                     source_profile=profile, integrity_verified=True)
-        write_json(raw_dir / 'manifest.json', meta)
+        if not (raw_dir / 'manifest.json').exists():
+            write_json(raw_dir / 'manifest.json', meta)
+        write_json(raw_dir / ('acquisition-' + uuid.uuid4().hex + '.json'), meta)
         active = read_json(root / 'active.json')
         if active and active['version'] == meta['version'] and active['mode'] == mode:
+            (root / 'pending.json').unlink(missing_ok=True)
             attempt.update(status='unchanged', version=meta['version'])
             return active
         write_json(root / 'pending.json', meta)
@@ -138,11 +159,16 @@ def transform(data_dir=None):
             return active
         raise QualityError('Nenhuma aquisição pendente. Execute ingest ou demo.')
     attempt = {'started_at': utc_now(), 'operation': 'transform', 'version': meta['version']}
-    destination = root / 'models' / meta['version']
-    destination.mkdir(parents=True, exist_ok=True)
+    published_destination = root / 'models' / meta['version']
+    if published_destination.resolve().parent != (root / 'models').resolve():
+        raise QualityError('Identificador de versão contém caminho inválido.')
+    destination = root / 'staging' / ('model-' + uuid.uuid4().hex)
+    destination.mkdir(parents=True, exist_ok=False)
     work = destination / 'work.duckdb'
     try:
         path = root / meta['parse_path']
+        if not path.resolve().is_relative_to((root / 'raw').resolve()):
+            raise QualityError('Caminho do bruto fora do diretório raw.')
         if sha256(path) != meta['parse_sha256']:
             raise QualityError('Bruto alterado após aquisição.')
         columns = meta['source_profile']['columns']
@@ -195,11 +221,20 @@ def transform(data_dir=None):
             con.execute("COPY (SELECT * FROM records WHERE NOT _eo_key_valid OR _eo_duplicate) TO " + literal((destination / 'rejected.parquet').as_posix()) + ' (FORMAT PARQUET)')
             con.execute('COPY (' + monthly_sql() + ') TO ' + literal((destination / 'monthly.parquet').as_posix()) + ' (FORMAT PARQUET)')
         active = read_json(root / 'active.json')
-        meta.update(status='published', profile=profile, model_path=str((destination / 'records.parquet').relative_to(root)),
-                    monthly_path=str((destination / 'monthly.parquet').relative_to(root)),
+        meta.update(status='published', profile=profile, model_path=str((published_destination / 'records.parquet').relative_to(root)),
+                    monthly_path=str((published_destination / 'monthly.parquet').relative_to(root)),
                     model_sha256=sha256(destination / 'records.parquet'), transformed_at=utc_now(),
                     previous_version=active['version'] if active and active['version'] != meta['version'] else None)
         write_json(destination / 'manifest.json', meta)
+        work.unlink(missing_ok=True)
+        published_destination.parent.mkdir(parents=True, exist_ok=True)
+        if published_destination.exists():
+            existing = read_json(published_destination / 'manifest.json')
+            if not existing or existing.get('model_sha256') != sha256(published_destination / 'records.parquet'):
+                raise QualityError('Versão existente falhou na integridade; preservada para investigação.')
+            meta = existing
+        else:
+            os.replace(destination, published_destination)
         write_json(root / 'active.json', meta)
         (root / 'pending.json').unlink(missing_ok=True)
         attempt.update(status='published', profile=profile)

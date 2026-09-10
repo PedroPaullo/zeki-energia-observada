@@ -1,14 +1,20 @@
-# Matriz de requisitos
+# Matriz requisito -> implementação -> teste -> demonstração
 
-| Requisito | Implementação verificável | Teste | Evidência na demonstração |
+| Critério | Implementação | Evidência automatizada | Demonstração |
 |---|---|---|---|
-| Fonte oficial e versão | URL, recurso, UTC, tamanho e SHA-256 no manifesto | validação de schema | `demo/manifest.json` e `manifesto.json` do ZIP |
-| Atualização mensal | `ingest`/`transform`/`update`; publicação só após reconciliação | idempotência e schema rejeitado | `python -m energia_observada status` |
-| Dossiê investigável | `service.build_dossier` e `app.py` | pipeline e exportação | conjunto → métricas → junho/julho |
-| Regras transparentes | `rules.py`, versão e parâmetros no manifesto | limites -10%, +10%, +25%, zero e divergência | situação “aumento relevante” e expander de regras |
-| Confiança documental | sete componentes ordinais | componentes e revisão | checklist “consistente” |
-| Registros-fonte | CSV completo de competência atual e comparada | contagem do ZIP | prévia e `registros.csv` com 1.364 linhas |
-| Contexto | série própria e aviso de equivalência | regras | aviso permanente de comparação descritiva |
-| Falha segura | `last_attempt.json`; ativo só muda ao publicar | estado vazio | erro não cria indicadores vazios |
-| Reprodução local | amostra ANEEL autenticada no repositório | `demo` + pytest | quatro comandos do README |
-| Limites de interpretação | avisos na interface, README e Markdown | conteúdo do dossiê | encerramento do vídeo |
+| Problema e usuário | `BRIEF_PRODUTO.md` e abertura da tela | revisão de documentação | explicar a decisão “qual conjunto investigar primeiro?” |
+| Fonte oficial | URL, recurso, tamanho, SHA, schema e PAR1 | `test_pipeline_failures.py`; `VALIDACAO_NACIONAL.json` | abrir hash e URL ANEEL |
+| Atualização mensal | `ingest`, `transform`, `update`, workflow agendado | idempotência, pendência antiga, falha segura | mostrar comando `update` e `last_attempt` |
+| Fila | `service.queue`, ordenação por variação absoluta | serviço e teste de tela | selecionar JUREMA na fila |
+| Dossiê completo | oito seções determinísticas | `test_rules_acceptance.py` | abrir “Por que investigar” |
+| Regras | `rules.py` 1.1.0; -10%, +10%, +25% | limites, base zero, divergência, nove/dez registros | abrir parâmetros e regra acionada |
+| Confiança | sete componentes com numeradores e denominadores | limites de qualidade e histórico | abrir checklist sem chamar de probabilidade |
+| Contexto próprio | mediana dos seis meses anteriores utilizáveis | `test_service_evidence.py` | série e mediana |
+| Contexto distribuidora | variações individuais elegíveis e inclusão/exclusão | `test_service_evidence.py` | pares ENEL CE na amostra |
+| Contexto nacional | população fixa de grupos nos dois meses | validação nacional; teste sintético | executar só em modo nacional |
+| Revisão de fonte | comparação de multiconjunto de hashes no mesmo recorte | revisão, reordenação, novo período e outro conjunto | abrir revisão no Dossiê |
+| Registros e exportação | CSV em fluxo, Markdown, manifesto, hashes | `verify_export`, exportação alterada | gerar, baixar e verificar ZIP |
+| Filtros | competência, distribuidora e município do equipamento | `test_service_evidence.py`; teste de tela | trocar filtro e explicar limite geográfico |
+| Estado vazio/erro | tela sem versão; ativo preservado após falha | `test_app.py`, testes de pipeline | mostrar erro documentado sem indicadores vazios |
+| Instalação limpa | `abrir-demo.cmd` e `demo --launch` | AppTest e browser smoke | executar do zero |
+| Vídeo | roteiro cronometrado e cola PDF | inspeção PDF e roteiro | gravação até cinco minutos |

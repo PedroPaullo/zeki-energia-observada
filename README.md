@@ -1,10 +1,12 @@
 # Energia Observada
 
-Um analista seleciona um conjunto elétrico destacado na fila e recebe um **Dossiê de Investigação rastreável**: por que entrou na fila, o que variou, registros originais, regras, confiança da evidência e um ZIP para reprodução. Ele apoia a decisão de investigar; não atribui causa.
+**Energia Observada transforma a atualização mensal de interrupções da ANEEL em uma decisão investigável: qual conjunto elétrico deve ser analisado primeiro, por qual mudança observada e com quais registros-fonte.**
 
-## Demonstração pronta para o avaliador
+O usuário é um analista de qualidade, operação ou inteligência. Ele recebe uma fila transparente e um Dossiê de Investigação com evidências, regras, confiança documental, comparações descritivas e limites explícitos. O produto não atribui causa.
 
-O repositório inclui uma amostra autêntica, pequena e identificada da fonte ANEEL. Ela permite executar o fluxo sem baixar 195 MiB:
+## Demonstração em 60 segundos
+
+No Windows, dê duplo clique em [`abrir-demo.cmd`](abrir-demo.cmd). Ele instala as dependências, publica a amostra e abre `http://localhost:8502`.
 
 ```powershell
 git clone https://github.com/PedroPaullo/zeki-energia-observada.git
@@ -12,59 +14,72 @@ cd zeki-energia-observada
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[test]"
-python -m energia_observada demo
-python -m streamlit run app.py
+python -m energia_observada demo --launch --port 8502
 ```
 
-No navegador, escolha **COMPANHIA ENERGETICA DO CEARA → JUREMA (13317) → 2026-07**, gere e baixe o pacote. A amostra contém 5.194 registros de janeiro a julho de 2026; seu manifesto registra o hash do recorte e o hash da fonte nacional de origem. O modo amostra desabilita a comparação nacional.
+Escolha **JUREMA (13317)** em **2026-07**. A fila mostra 729 registros e 279.285 afetações reportadas, contra 635 e 20.247 em junho. O Dossiê mostra “aumento relevante”, confiança “consistente”, registros de origem e um ZIP verificável.
 
-## Caso demonstrado com dados oficiais
+![Fila e Dossiê](docs/images/fila-dossie.png)
 
-O arquivo oficial de 2026 foi adquirido e validado em 10/09/2026: 204.708.716 bytes, SHA-256 `53064794800a0dcff29784c03ccfa84c24f7c290f80c14889d0e950a19f82823`, 6.078.331 linhas, 26 colunas, sete competências e 51 distribuidoras. Após tratamento auditado, 6.077.982 linhas foram aceitas, 349 duplicadas foram marcadas e 20.299 durações inválidas foram preservadas como ausência, nunca convertidas em zero.
+## Entrega útil
 
-No caso JUREMA, julho teve 729 registros e 279.285 afetações reportadas, contra 635 e 20.247 em junho. A situação é **aumento relevante** pela regra explícita de +25%; a confiança é **consistente** porque há sete competências, comparação disponível, campos exigidos, datas válidas no mês e integridade conciliada. “Afetações reportadas” não significa consumidores únicos.
+1. Fila mensal por variação absoluta de afetações reportadas.
+2. Dossiê por `distribuidora + conjunto + competência + filtros + versões`.
+3. Comparação mensal, série própria, pares da distribuidora e, no modo nacional, comparação agregada contra demais distribuidoras com população fixa elegível.
+4. ZIP com `dossie.md`, `registros.csv` e `manifesto.json`, verificável sem a sessão Streamlit.
 
-## Fonte e limites
+## Dados, validade e limitações
 
-Fonte: [Interrupções de Energia Elétrica nas Redes de Distribuição — ANEEL](https://dadosabertos.aneel.gov.br/dataset/interrupcoes-de-energia-eletrica-nas-redes-de-distribuicao), atualizada mensalmente. A cobertura informada pela fonte exclui permissionárias e cooperativas.
+A demonstração é um recorte autêntico de quatro conjuntos ENEL CE: 22.980 registros de janeiro a julho de 2026. O recorte, a consulta e os hashes estão em [`demo/manifest.json`](demo/manifest.json). Ele permite comparação entre pares, mas bloqueia o contexto nacional por não ser uma amostra estatística.
 
-- Aumento de interrupções não prova a causa.
-- Município identifica o equipamento, não necessariamente os consumidores afetados.
+O arquivo nacional validado tem 204.708.716 bytes, SHA-256 `53064794800a0dcff29784c03ccfa84c24f7c290f80c14889d0e950a19f82823`, 6.078.331 linhas, 51 distribuidoras e 3.124 conjuntos. A validação independente está em [`docs/VALIDACAO_NACIONAL.json`](docs/VALIDACAO_NACIONAL.json).
+
+Fonte: [Interrupções de Energia Elétrica nas Redes de Distribuição - ANEEL](https://dadosabertos.aneel.gov.br/dataset/interrupcoes-de-energia-eletrica-nas-redes-de-distribuicao). A cobertura da fonte exclui permissionárias e cooperativas.
+
+- Aumento de interrupções não prova causa.
+- Município do equipamento não representa necessariamente consumidores afetados.
 - Ausência de dados não equivale à ausência de interrupções.
-- Não calcula DEC/FEC e não substitui análise regulatória ou técnica.
+- Afetações reportadas não são consumidores únicos.
+- Comparações são descritivas; equivalência estatística não foi estabelecida.
+- O produto apoia investigação, não substitui análise regulatória ou técnica.
 
-## Arquitetura e rastreabilidade
+## Indicadores e regras
 
-`fonte oficial → bruto imutável + SHA-256 → validação de schema → Parquet normalizado → DuckDB → regras versionadas → Dossiê/ZIP/Streamlit`
+| Indicador | Fórmula | Tratamento |
+|---|---|---|
+| Registros | contagem de linhas aceitas | não representa eventos únicos |
+| Afetações reportadas | `SUM(QtdConsumidoresAfetados)` válida | nulo não vira zero |
+| P90 duração | `quantile_cont((fim - início)/hora, 0.9)` | só durações válidas; nunca média de P90 |
+| Participação | afetações do conjunto / afetações válidas do filtro | não representa consumidores únicos |
 
-Cada aquisição guarda URL, recurso, UTC, tamanho, hash, schema, contagens, rejeições e erros. A publicação é atômica: erro na aquisição ou transformação mantém a última versão válida. `manifesto.json` do ZIP contém filtros, fórmulas, métricas, parâmetros, versão e hashes; `registros.csv` inclui todos os registros aceitos do mês atual e do mês comparado.
+As regras versionadas em [`energia_observada/rules.py`](energia_observada/rules.py) exigem dez registros e durações, 95% de datas válidas; +10% indica deterioração moderada e +25%, aumento relevante. São critérios de triagem, não padrão regulatório nem significância estatística.
 
-## Dados nacionais e atualização
+Confiança é ordinal: insuficiente, limitada, adequada ou consistente. Ela expõe comparação, histórico, datas, schema, registros usados, nulos/invalidos por campo e integridade. Não é probabilidade ou nota de fornecimento.
 
-Para processar o arquivo completo, a máquina precisa de espaço livre para bruto, modelo e temporários. O pipeline usa uma thread e 256 MB de memória DuckDB por padrão.
+## Arquitetura e atualização
+
+`catálogo ANEEL -> bruto imutável + SHA-256 -> PAR1/schema -> Parquet normalizado -> DuckDB -> regras -> fila/Dossiê -> ZIP`
+
+A aquisição registra URL, recurso, UTC, ETag, tamanho, hash, schema, contagens e falhas. O modelo é preparado em staging e só publica após reconciliação; erro preserva a versão anterior. A reaquisição idêntica é idempotente.
 
 ```powershell
 python -m energia_observada ingest --year 2026
 python -m energia_observada transform
 python -m energia_observada update --year 2026
 python -m energia_observada status
-python -m pytest
+python -m energia_observada verify exports\dossie_07047251000170_13317_2026-07.zip
 ```
 
-## Regras transparentes
+O GitHub Actions agenda a aquisição mensal e valida download, schema, duas execuções e artefatos. Detecção de revisão compara versões locais persistidas, pois o runner do Actions nasce sem histórico.
 
-Indicadores: registros aceitos, soma de `QtdConsumidoresAfetados` válida e P90 contínuo das durações válidas. Compara-se o mês civil anterior. Um mês é utilizável com ao menos 10 registros, quantidades completas, 95% de datas válidas e 10 durações válidas. +10% indica deterioração moderada; +25%, aumento relevante. São regras operacionais versionadas, sem alegação de significância estatística ou padrão regulatório.
-
-O nível de confiança é ordinal — insuficiente, limitada, adequada ou consistente — e explica sete componentes: comparação, histórico, datas, schema, volume, ausências e integridade. Não é probabilidade nem avaliação da qualidade do fornecimento.
-
-## Como auditar a entrega
+## Auditoria e documentação
 
 ```powershell
-git log --reverse --oneline
-git diff --check
 python -m pytest
-python -m energia_observada demo
-python -m energia_observada dossier --cnpj 07047251000170 --conjunto 13317 --period 2026-07
+python scripts\validate_national.py
+python scripts\validate_browser.py
+git diff --check
+git log --reverse --oneline
 ```
 
-Veja [docs/MATRIZ_REQUISITOS.md](docs/MATRIZ_REQUISITOS.md) e [docs/ROTEIRO_VIDEO.md](docs/ROTEIRO_VIDEO.md) para a correspondência requisito → implementação → teste → demonstração.
+Leia [`docs/BRIEF_PRODUTO.md`](docs/BRIEF_PRODUTO.md), [`docs/PRD.md`](docs/PRD.md), [`docs/MATRIZ_REQUISITOS.md`](docs/MATRIZ_REQUISITOS.md), [`docs/RELATORIO_VALIDACAO.md`](docs/RELATORIO_VALIDACAO.md) e [`docs/ROTEIRO_VIDEO.md`](docs/ROTEIRO_VIDEO.md). A cola final é gerada em `output/pdf/cola-video-energia-observada.pdf` por `python scripts\gerar_cola_video.py`.

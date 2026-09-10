@@ -1,16 +1,11 @@
 {
   "mode": "sample",
-  "selection": {
-    "distributor": "COMPANHIA ENERGETICA DO CEARA",
-    "cnpj": "07047251000170",
-    "conjunto": "13317",
-    "name": "JUREMA"
-  },
   "source_url": "https://dadosabertos.aneel.gov.br/dataset/ccb25653-f07b-4f28-84c2-62a89d1f5a56/resource/cf722d0b-aa04-4681-bcd9-8a737e857182/download/interrupcoes-energia-eletrica-2026.parquet",
   "resource_id": "cf722d0b-aa04-4681-bcd9-8a737e857182",
   "source_sha256": "53064794800a0dcff29784c03ccfa84c24f7c290f80c14889d0e950a19f82823",
   "source_acquired_at": "2026-09-10T14:20:43.727808+00:00",
-  "extracted_rows": 5194,
+  "sample_sha256": "9630c3f56c90c53a58561c1960b61f673d195b27bba5ad690d5703f57576d611",
+  "extracted_rows": 22980,
   "periods": [
     "2026-01",
     "2026-02",
@@ -20,6 +15,30 @@
     "2026-06",
     "2026-07"
   ],
-  "sample_sha256": "7d731871d21a297f9aac4d1bbb12686eaa7f106211154bdd9202bca599770430",
-  "license_notice": "Recorte autêntico da fonte pública ANEEL. Ver README para atribuição e limitações."
+  "selection": {
+    "cnpj": "07047251000170",
+    "conjunto": "13317",
+    "name": "JUREMA"
+  },
+  "groups": [
+    {
+      "code": "13249",
+      "name": "BARRA DO CEARÁ"
+    },
+    {
+      "code": "13255",
+      "name": "BONSUCESSO"
+    },
+    {
+      "code": "13263",
+      "name": "CAUCAIA"
+    },
+    {
+      "code": "13317",
+      "name": "JUREMA"
+    }
+  ],
+  "selection_policy": "JUREMA + três conjuntos com maior quantidade de registros e sete competências na ENEL CE. Recorte deliberado para demonstração; não é amostragem estatística.",
+  "extraction_query": "SELECT * FROM read_parquet('SOURCE_PARQUET') WHERE NumCNPJDistribuidora=7047251000170 AND CodConjUnidadeConsumidora IN (13317,13263,13255,13249) ORDER BY CodConjUnidadeConsumidora, AnoCompetencia, MesCompetencia, CodInterrupcao, DatInicioInterrupcao",
+  "license_notice": "Dados ANEEL, atribuição e licença do catálogo em demo/README.md."
 }

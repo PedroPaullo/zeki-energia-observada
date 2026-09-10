@@ -10,7 +10,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = ["duckdb==1.5.2", "streamlit==1.49.1", "plotly==6.3.0", "requests==2.32.5", "pyarrow==21.0.0"]
 
 [project.optional-dependencies]
-test = ["pytest==8.4.2"]
+test = ["pytest==8.4.2", "reportlab==4.4.3", "pypdf==6.0.0", "playwright==1.55.0"]
 
 [tool.setuptools.packages.find]
 include = ["energia_observada*"]
