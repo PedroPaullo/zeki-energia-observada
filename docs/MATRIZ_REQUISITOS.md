@@ -1,0 +1,1 @@
+# Matriz de requisitos`n`n| Requisito | Implementação | Evidência |`n|---|---|---|`n| Atualização mensal | ingest/update + manifesto | testes e log |`n| Rastreabilidade | SHA-256, bruto, versão, ZIP | manifesto.json |`n| Dossiê | service.build_dossier + app | teste de exportação |`n| Regras transparentes | rules.py | test_rules.py |
