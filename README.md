@@ -82,4 +82,4 @@ git diff --check
 git log --reverse --oneline
 ```
 
-Leia [`docs/BRIEF_PRODUTO.md`](docs/BRIEF_PRODUTO.md), [`docs/PRD.md`](docs/PRD.md), [`docs/MATRIZ_REQUISITOS.md`](docs/MATRIZ_REQUISITOS.md), [`docs/RELATORIO_VALIDACAO.md`](docs/RELATORIO_VALIDACAO.md) e [`docs/ROTEIRO_VIDEO.md`](docs/ROTEIRO_VIDEO.md). A cola final é gerada em `output/pdf/cola-video-energia-observada.pdf` por `python scripts\gerar_cola_video.py`.
+Leia [`docs/BRIEF_PRODUTO.md`](docs/BRIEF_PRODUTO.md), [`docs/PRD.md`](docs/PRD.md), [`docs/MATRIZ_REQUISITOS.md`](docs/MATRIZ_REQUISITOS.md), [`docs/RELATORIO_VALIDACAO.md`](docs/RELATORIO_VALIDACAO.md) e [`docs/ROTEIRO_VIDEO.md`](docs/ROTEIRO_VIDEO.md). A cola final é gerada em `output/pdf/cola-video-energia-observada.pdf` por `python scripts\gerar_cola_video.py`. Para regenerá-la, instale antes `python -m pip install -e ".[presentation]"`.
