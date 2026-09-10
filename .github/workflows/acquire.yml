@@ -1,0 +1,24 @@
+name: Acquire official ANEEL source
+on:
+  workflow_dispatch:
+  push:
+    paths: ['scripts/acquire_source.py', '.github/workflows/acquire.yml']
+permissions:
+  contents: read
+jobs:
+  acquire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/acquire_source.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: official-aneel-2026
+          path: acquired/
+          compression-level: 0
+          retention-days: 7
