@@ -78,9 +78,6 @@ O GitHub Actions agenda a aquisição mensal e valida download, schema, duas exe
 
 `national_overview` agrega o arquivo completo por distribuidora e competência. A projeção usa `último valor + (último valor - primeiro valor) / (n - 1)` nos últimos até três meses disponíveis, limitada a zero. O método, a janela e o aviso de interpretação são exportados pelo serviço. Os dois primeiros dígitos do município IBGE são usados apenas para agrupar a UF dominante por volume de registros; a fonte não entrega UF como coluna original. A previsão serve para organizar a próxima leitura e não afirma que uma interrupção ocorrerá.
 
-### Perfil leve para execução
-
-O produto foi mantido compatível com um ambiente econômico: DuckDB consulta Parquet sem carregar o arquivo nacional inteiro em pandas, a conexão usa uma thread (`threads=1`), o limite padrão do DuckDB é 256 MB (`ENERGIA_MEMORY_LIMIT` pode reduzir ou ajustar esse valor) e a projeção trabalha somente com agregados mensais por distribuidora. A demonstração usa quatro conjuntos para abrir rapidamente; o modo nacional processa as 51 distribuidoras no arquivo oficial por agregação em disco. Exportações são escritas em fluxo para o ZIP, sem montar todos os registros na memória. Essa é uma decisão de custo e previsibilidade, não uma promessa de desempenho independente da máquina.
 
 ## Auditoria e documentação
 
