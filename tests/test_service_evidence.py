@@ -2,7 +2,7 @@ import json
 import zipfile
 import pytest
 from energia_observada.pipeline import ingest, transform
-from energia_observada.service import build_dossier, export_dossier, verify_export, queue
+from energia_observada.service import build_dossier, export_dossier, verify_export, queue, national_overview
 
 HEAD='NumCNPJDistribuidora;NomAgente;CodMunicipioIBGE;CodInterrupcao;CodConjUnidadeConsumidora;DscConjuntoUnidadeConsumidora;AnoCompetencia;MesCompetencia;DatInicioInterrupcao;DatFimInterrupcao;QtdConsumidoresAfetados\n'
 CNPJ='12345678000199'
@@ -86,3 +86,11 @@ def test_reported_categories_are_exposed_as_hypotheses_not_causality(tmp_path):
  origin=dossier['reported_signals']['fields']['DscFatoGeradorOrigem']
  assert {item['category'] for item in origin}=={'Interna','Externa'}
  assert 'não provam causa raiz' in dossier['reported_signals']['notice']
+
+def test_national_overview_includes_distributors_and_bounded_forecast(tmp_path):
+ publish(tmp_path, records()+records('B',cnpj='99999999000199',quantity=200), mode='national')
+ overview=national_overview('2026-02', data_dir=tmp_path/'data')
+ assert overview['distributors_loaded']==2
+ assert {row['cnpj'] for row in overview['all_rows']}=={CNPJ,'99999999000199'}
+ assert all(row['forecast_affected'] >= 0 for row in overview['all_rows'])
+ assert all(row['forecast_period']=='2026-03' for row in overview['all_rows'])

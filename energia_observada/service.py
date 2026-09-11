@@ -8,6 +8,7 @@ from .rules import evaluate, usable, previous_period
 
 KEYS = ('records', 'affected', 'p90_hours')
 NOTICE = 'Comparação descritiva; equivalência estatística não estabelecida.'
+UF_IBGE = {'11':'RO','12':'AC','13':'AM','14':'RR','15':'PA','16':'AP','17':'TO','21':'MA','22':'PI','23':'CE','24':'RN','25':'PB','26':'PE','27':'AL','28':'SE','29':'BA','31':'MG','32':'ES','33':'RJ','35':'SP','41':'PR','42':'SC','43':'RS','50':'MS','51':'MT','52':'GO','53':'DF'}
 
 def _delta(a,b):
  return {k:{'current':a.get(k),'previous':b.get(k),'absolute':None if a.get(k) is None or b.get(k) is None else a[k]-b[k], 'percent':None if a.get(k) is None or b.get(k) in (None,0) else 100*(a[k]/b[k]-1)} for k in KEYS}
@@ -91,6 +92,48 @@ def queue(period, cnpj=None, municipio=None, data_dir=None):
   for item in result:
    key=(item['cnpj'],item['conjunto']); cur=lookup.get((*key,period)); prior=lookup.get((*key,previous)); assessment=evaluate(cur,prior,[cur],integrity=a.get('integrity_verified',False)); item.update(distributor=names.get(key,{}).get('distributor',key[0]),display_name=names.get(key,{}).get('display_name',key[1]),situation=assessment['situation']['label'],rule_id=assessment['situation']['rule_id'],reason='Ordenação por variação absoluta de afetações reportadas; a situação usa os três indicadores.')
   return result
+
+def national_overview(period, data_dir=None, limit=12):
+    """Aggregate every loaded distributor and derive an auditable short forecast.
+
+    The forecast is a descriptive linear trend over the last three available
+    monthly aggregates. It is deliberately bounded at zero and must not be
+    read as a probability or causal prediction.
+    """
+    a=_active(data_dir)
+    with _con(a,data_dir) as c:
+        rel='read_parquet('+literal((root_dir(data_dir)/a['model_path']).as_posix())+')'
+        aggregates=rows(c, f'''SELECT _eo_cnpj cnpj, min(NomAgente) distributor, _eo_period period,
+            count(*) records, sum(_eo_affected) affected,
+            quantile_cont(_eo_duration,.9) p90_hours
+            FROM {rel} WHERE _eo_key_valid AND NOT _eo_duplicate
+            GROUP BY 1,3 ORDER BY 1,3''')
+        uf_rows=rows(c, f'''SELECT _eo_cnpj cnpj, left(nullif(_eo_municipio,''),2) uf_code, count(*) records
+            FROM {rel} WHERE _eo_key_valid AND NOT _eo_duplicate GROUP BY 1,2''')
+        dominant={}
+        for row in uf_rows:
+            if row['uf_code'] is not None and (row['cnpj'] not in dominant or row['records']>dominant[row['cnpj']][1]): dominant[row['cnpj']]=(row['uf_code'],row['records'])
+    # A distributor may span multiple UFs; retain a stable dominant UF label.
+    by_dist={}
+    for item in aggregates:
+        key=(item['cnpj'],item['period'])
+        target=by_dist.setdefault(key,dict(item))
+    series={}
+    for (cnpj,p),item in by_dist.items():
+        code=dominant.get(cnpj,(None,0))[0]
+        item['uf']=UF_IBGE.get(code,'recorte IBGE '+str(code or 'não informado')); series.setdefault(cnpj,[]).append(item)
+    def next_period(value):
+        y,m=map(int,value.split('-')); return f'{y+1:04d}-01' if m==12 else f'{y:04d}-{m+1:02d}'
+    output=[]
+    for cnpj,items in series.items():
+        items.sort(key=lambda x:x['period']); observed=[x for x in items if x['period']<=period]
+        if not observed: continue
+        tail=observed[-3:]; values=[float(x['affected'] or 0) for x in tail]
+        slope=(values[-1]-values[0])/(len(values)-1) if len(values)>1 else None
+        last=observed[-1]; forecast=None if slope is None else max(0.0,values[-1]+slope)
+        output.append({'cnpj':cnpj,'distributor':last['distributor'],'uf':last['uf'],'period':last['period'],'records':last['records'],'affected':last['affected'],'p90_hours':last['p90_hours'],'history_periods':[x['period'] for x in tail],'forecast_period':next_period(last['period']),'forecast_affected':forecast,'forecast_method':'tendência linear dos últimos até 3 agregados; mínimo 0','forecast_disclaimer':'Projeção descritiva; não é probabilidade, previsão causal ou garantia operacional.'})
+    output.sort(key=lambda x:x['affected'],reverse=True)
+    return {'mode':a['mode'],'period':period,'distributors_loaded':len(output),'rows':output[:limit],'all_rows':output,'notice':'Recorte nacional das distribuidoras carregadas. UF é derivada dos dois primeiros dígitos do código IBGE dominante por registros; não é uma coluna original da fonte. '+output[0]['forecast_disclaimer'] if output else 'Sem dados.'}
 
 def _monthly_relation(c,a,data_dir,municipio=None):
  if municipio is None: return 'read_parquet('+literal((root_dir(data_dir)/a['monthly_path']).as_posix())+')'

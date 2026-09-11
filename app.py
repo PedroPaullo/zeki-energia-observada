@@ -60,6 +60,19 @@ def render():
              "Variação absoluta": r.get("change"), "Situação": r.get("situation","Consultar dossiê")} for r in q]
     st.dataframe(view[:20], width="stretch", hide_index=True)
     st.caption(f"Exibindo {min(20,len(q))} de {len(q)} conjuntos. Todos disponíveis na seleção abaixo.")
+    if active["mode"] == "national":
+        overview = service.national_overview(period, limit=20)
+        st.subheader("Panorama nacional e projeção operacional")
+        st.caption(overview["notice"])
+        frame = pd.DataFrame(overview["rows"])
+        if not frame.empty:
+            st.dataframe(frame[["distributor","uf","affected","forecast_period","forecast_affected"]].rename(columns={"distributor":"Distribuidora","uf":"UF IBGE dominante","affected":"Afetações atuais","forecast_period":"Próxima competência","forecast_affected":"Projeção de afetações"}), width="stretch", hide_index=True)
+            chart = px.bar(frame.head(10), x="distributor", y=["affected","forecast_affected"], barmode="group", labels={"value":"Afetações reportadas","distributor":"Distribuidora","variable":"Série"}, color_discrete_sequence=["#142332","#24b4a7"])
+            chart.update_layout(height=360, margin=dict(l=10,r=10,t=15,b=10))
+            st.plotly_chart(chart, width="stretch")
+            regional = frame.groupby("uf", as_index=False)["affected"].sum().sort_values("affected", ascending=False)
+            st.write("Agregado por UF derivada do código IBGE dominante:")
+            st.dataframe(regional.rename(columns={"uf":"UF","affected":"Afetações reportadas"}), width="stretch", hide_index=True)
     queue_options = [(r["cnpj"],r["conjunto"]) for r in q]
     if st.session_state.get("selected_queue_item") not in queue_options:
         st.session_state["selected_queue_item"] = queue_options[0]

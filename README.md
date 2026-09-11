@@ -27,6 +27,8 @@ Escolha **JUREMA (13317)** em **2026-07**. A fila mostra 729 registros e 279.285
 2. Dossiê por `distribuidora + conjunto + competência + filtros + versões`.
 3. Comparação mensal, série própria, pares da distribuidora e, no modo nacional, comparação agregada contra demais distribuidoras com população fixa elegível.
 4. ZIP com `dossie.md`, `registros.csv` e `manifesto.json`, verificável sem a sessão Streamlit.
+5. No modo nacional, panorama das distribuidoras carregadas, comparação por distribuidora e UF derivada do código IBGE.
+6. Projeção operacional da próxima competência por tendência linear dos últimos até três agregados; não é probabilidade nem previsão causal.
 
 ## Dados, validade e limitações
 
@@ -71,6 +73,10 @@ python -m energia_observada verify exports\dossie_07047251000170_13317_2026-07.z
 ```
 
 O GitHub Actions agenda a aquisição mensal e valida download, schema, duas execuções e artefatos. Detecção de revisão compara versões locais persistidas, pois o runner do Actions nasce sem histórico.
+
+### Previsão e comparação ampliada
+
+`national_overview` agrega o arquivo completo por distribuidora e competência. A projeção usa `último valor + (último valor - primeiro valor) / (n - 1)` nos últimos até três meses disponíveis, limitada a zero. O método, a janela e o aviso de interpretação são exportados pelo serviço. Os dois primeiros dígitos do município IBGE são usados apenas para agrupar a UF dominante por volume de registros; a fonte não entrega UF como coluna original. A previsão serve para organizar a próxima leitura e não afirma que uma interrupção ocorrerá.
 
 ## Auditoria e documentação
 
